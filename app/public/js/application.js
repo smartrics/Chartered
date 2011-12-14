@@ -170,7 +170,7 @@ function collectData(series) {
 	return plotData;
 } 
 
-function plotVolume(plotData) {
+function plotVolume(plotData, from, to) {
 	var data_options_volume = [{ 
 		data: plotData.or_v.points,
 		stack: false,
@@ -207,8 +207,9 @@ function plotVolume(plotData) {
 	var plot_options_volume = {
 	legend: { show: true, container: $("#placeholder_volume_legend"), margin: 1, noColumns: 6 },
      grid: { hoverable: true, clickable: true },
-     xaxis: { min: -(plotData.references.t1-plotData.references.t0) * 0.05, max: (plotData.references.t1-plotData.references.t0) * 1.05 },
-     yaxis: { min: -plotData.references.q0 * 0.05 }
+     xaxis: { min: from, max: to },
+     yaxis: { min: -plotData.references.q0 * 0.05 },
+     selection: { mode: "x" }
 	};	
 	doPlot("volume", data_options_volume, plot_options_volume);
 }
@@ -243,7 +244,7 @@ function plotSmile(time, plotData) {
 	doPlot("smile", data_options_smile, plot_options_smile);
 }
 
-function plotPrices(plotData) {
+function plotPrices(plotData, from, to) {
 	var data_options_prices = [{ 
 		data: plotData.or_p.points,
 		label: plotData.or_p.label,
@@ -272,8 +273,10 @@ function plotPrices(plotData) {
 	var plot_options_prices = {
 		legend: { show: true, container: $("#placeholder_prices_legend"), margin: 1, noColumns: 6 },
 		grid: { hoverable: true, clickable: true },
-		xaxis: { min: -(plotData.references.t1-plotData.references.t0) * 0.05, max: (plotData.references.t1-plotData.references.t0) * 1.05 },
-		yaxis: { min: plotData.references.minPrice * 0.99999 , max: plotData.references.maxPrice * 1.00001 }
+		xaxis: { min: from, max: to },
+		yaxis: { min: plotData.references.minPrice * 0.99999 , max: plotData.references.maxPrice * 1.00001 },
+	     selection: { mode: "x" }
+		
 	};	
  	doPlot("prices", data_options_prices, plot_options_prices);	
 }
@@ -281,8 +284,12 @@ function plotPrices(plotData) {
 function parseAndPlot(series) {
 	// todo: remove global plotData
 	plotData = collectData(series);
-	plotVolume(plotData);
-	plotPrices(plotData);
+	plotPricesAndVolume(plotData);
+}
+
+function plotPricesAndVolume(plotData) {
+	plotVolume(plotData, -(plotData.references.t1-plotData.references.t0) * 0.05, (plotData.references.t1-plotData.references.t0) * 1.05);
+	plotPrices(plotData, -(plotData.references.t1-plotData.references.t0) * 0.05, (plotData.references.t1-plotData.references.t0) * 1.05);
 }
 
 function showTooltip(x, y, contents) {
@@ -303,8 +310,6 @@ function plotClick(event, pos, item) {
         var venue = item.series.data.venues[item.dataIndex];
         var points = item.series.data[item.dataIndex];
         var t = parseInt(points[0]);
-//        plot.highlight(item.series, item.datapoint);
-//        notify(item.series.label  + ": time=" + t + ", value=" + points[1] + ", venue=" + venue) ;
         plotSmile(t, plotData);
     }
 }
@@ -318,7 +323,7 @@ function plotHover(event, pos, item) {
             var points = item.series.data[item.dataIndex];
             var t = parseInt(points[0]);
             showTooltip(item.pageX, item.pageY, venue);
-            //plotSmile(t, plotData);
+            plotSmile(t, plotData);
         }
     }
     else {
@@ -327,10 +332,19 @@ function plotHover(event, pos, item) {
     }
 }
 
+function plotSelected (event, ranges) {
+    var from = ranges.xaxis.from.toFixed(1);
+	var to = ranges.xaxis.to.toFixed(1);
+	notify("Selected range[" + from + ", " + to + "]");
+	plotVolume(plotData, from, to);
+	plotPrices(plotData, from, to);
+}
+
 function doPlot(type, data_options, plot_options) {
 	$.plot($("#placeholder_" + type), data_options, plot_options);
 	$("#placeholder_" + type).bind("plotclick", plotClick);
 	$("#placeholder_" + type).bind("plothover", plotHover);
+	$("#placeholder_" + type).bind("plotselected", plotSelected);	
 }
 
 function plotSelectedSample() {
@@ -347,6 +361,10 @@ function initializePlot() {
 	doPlot("prices", [], {});
 	doPlot("volume", [], {});
 	doPlot("smile", [], {});
+}
+
+function resetPlot() {
+	plotPricesAndVolume(plotData);	
 }
 
 function initialize() {
