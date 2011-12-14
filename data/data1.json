@@ -1,0 +1,42 @@
+[
+	{ "timestamp": "139938213843", "event": "Order", "orderQty" : "100", "price":"1.342050", "side" : "buy", "venue" : "SOR" },	
+
+	{ "timestamp": "139938213863", "event": "MarketDataEntry", "venue":"EBS", "price": "1.342189", "volume" : "10" }, 
+	{ "timestamp": "139938213863", "event": "MarketDataEntry", "venue":"GSG", "price": "1.342190", "volume" : "40" }, 
+	{ "timestamp": "139938213863", "event": "MarketDataEntry", "venue":"CNX", "price": "1.342190", "volume" : "20" }, 
+
+	{ "timestamp": "139938213880", "event": "MarketDataEntry", "venue":"EBS", "price": "1.342195", "volume" : "30" },
+	{ "timestamp": "139938213880", "event": "MarketDataEntry", "venue":"GSG", "price": "1.342188", "volume" : "20" }, 
+	{ "timestamp": "139938213880", "event": "MarketDataEntry", "venue":"CNX", "price": "1.342185", "volume" : "10" }, 
+
+	{ "timestamp": "139938213899", "event": "NewOrderSingle", "orderQty" : "10", "price":"1.342195", "side" : "buy", "venue" : "EBS" },	
+	{ "timestamp": "139938213921", "event": "NewOrderSingle", "orderQty" : "20", "price":"1.342050", "venue" : "GSG" },	
+
+	{ "timestamp": "139938213980", "event": "ExecutionReport", "execType":"PARTIAL_FILL", "lastShares" : "10", "orderQty": "90", "price":"1.342189", "venue" : "EBS" },	
+
+	{ "timestamp": "139938214090", "event": "MarketDataEntry", "venue":"EBS", "price": "1.342189", "volume" : "10" }, 
+	{ "timestamp": "139938214090", "event": "MarketDataEntry", "venue":"GSG", "price": "1.342300", "volume" : "30" },
+	{ "timestamp": "139938214090", "event": "MarketDataEntry", "venue":"DBK", "price": "1.342310", "volume" : "20" },
+	{ "timestamp": "139938214090", "event": "MarketDataEntry", "venue":"CNX", "price": "1.342250", "volume" : "40" },
+
+	{ "timestamp": "139938214190", "event": "MarketDataEntry", "venue":"EBS", "price": "1.342190", "volume" : "40" },
+	{ "timestamp": "139938214190", "event": "MarketDataEntry", "venue":"GSG", "price": "1.342195", "volume" : "25" }, 
+	{ "timestamp": "139938214190", "event": "MarketDataEntry", "venue":"CNX", "price": "1.342197", "volume" : "25" }, 
+
+	{ "timestamp": "139938214224", "event": "ExecutionReport", "execType":"PARTIAL_FILL", "lastShares" : "20", "orderQty": "70", "price":"1.342190", "venue" : "GSG" },	
+
+	{ "timestamp": "139938214230", "event": "NewOrderSingle", "quantity" : "10", "price":"1.342195", "side" : "buy", "venue" : "EBS" },	
+
+	{ "timestamp": "139938214253", "event": "ExecutionReport", "execType":"PARTIAL_FILL", "lastShares" : "10",  "orderQty": "60", "price":"1.342192", "venue" : "RAQ" },	
+	{ "timestamp": "139938214290", "event": "ExecutionReport", "execType":"CANCEL", "lastShares" : "10",  "orderQty": "60", "price":"1.342192", "venue" : "HFX" },	
+
+	{ "timestamp": "139938214300", "event": "NewOrderSingle", "orderQty" : "20", "price":"1.342198", "side" : "buy", "venue" : "EBS" },	
+	{ "timestamp": "139938214332", "event": "NewOrderSingle", "orderQty" : "40", "price":"1.342200", "side" : "buy", "venue" : "GSG" },	
+
+	{ "timestamp": "139938214338", "event": "MarketDataEntry", "venue":"EBS", "price": "1.342222", "volume" : "50" },
+	{ "timestamp": "139938214390", "event": "MarketDataEntry", "venue":"GSG", "price": "1.342230", "volume" : "30" }, 
+
+	{ "timestamp": "139938214451", "event": "ExecutionReport", "execType":"REJECT", "lastShares" : "40",  "orderQty": "20", "price":"1.342200", "venue" : "DBK" },	
+	{ "timestamp": "139938214501", "event": "ExecutionReport", "execType":"PARTIAL_FILL", "lastShares" : "40",  "orderQty": "20", "price":"1.342200", "venue" : "EBS" },	
+	{ "timestamp": "139938214532", "event": "ExecutionReport", "execType":"FILL", "lastShares" : "20",  "orderQty": "0", "price":"1.342230", "venue" : "DBK" }
+]

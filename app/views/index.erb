@@ -1,0 +1,56 @@
+<h1>Plot samples</h1>
+<p />
+<label for="samples_dir">Data directory:</label>
+<input type="text" id="samples_dir" name="samples_dir" size="70"
+	value="<%= @samples_dir %>" />
+<input type="button" value="refresh samples list" onClick="refreshSamplesList(); return false;" />
+<p />
+<label for="samples">Samples list:</label>
+<select id="samples" name="samples"></select>
+<input type="button" value="plot selected sample" onClick="plotSelectedSample(); return false;" />
+<p />
+
+<table width="100%">
+	<tr>
+		<td colspan="3">
+			<div id="notificationarea" style="float:left"></div>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<div id="placeholder_prices_legend"></div>
+		</td>
+		<td>
+			<div style="float:left">
+				<div id="placeholder_volume_legend"></div>
+			</div>
+		</td>
+		<td>
+			<div style="float:left">
+				<div id="placeholder_smile_legend"></div>
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<div style="float:left">
+				<div id="placeholder_prices" style="float:left;width:500px;height:400px"></div>
+			</div>
+		</td>
+		<td>
+			<div style="float:left">
+				<div id="placeholder_volume" style="float:left;width:500px;height:400px"></div>
+			</div>
+		</td>
+		<td>
+			<div style="float:left">
+				<div id="placeholder_smile" style="float:left;width:300px;height:400px"></div>
+			</div>
+		</td>
+	</tr>
+</table>
+
+
+
+
+
