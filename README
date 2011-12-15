@@ -1,0 +1,3 @@
+Sample app to try out flot js chart library
+
+This app - in sinatra/jruby - plots financial market data
