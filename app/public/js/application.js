@@ -473,3 +473,34 @@ function notify(message)  {
 function notifyAppend(message)  {
 	$("#notificationarea").insertHtml("<br/><code>[" + new Date() + "] <br/>" + message + "</code>");
 }
+
+
+/******* jqgrid ******/
+function renderTable() {
+	var sel = $("#samples option:selected").val();
+	jQuery("#datagrid").jqGrid({
+	   	url:"/samples/" + sel,
+		datatype: "json",
+	   	colNames:['TS','Event', 'ClOrdId', 'OrdId','Side','OrdQty','Price'],
+	   	colModel:[
+	   		{name:'timestamp',index:'timestamp', width:60, sorttype:"int"},
+	   		{name:'event',index:'event', width:90},
+	   		{name:'clOrderId',index:'clOrderId', width:100},
+	   		{name:'orderId',index:'orderId', width:80},
+	   		{name:'side',index:'side', width:80},		
+	   		{name:'orderQty',index:'orderQty'},		
+	   		{name:'price',index:'price'}		
+	   	],
+	   	sortname: 'timestamp',
+	    viewrecords: true,
+	    sortorder: "desc",
+	    loadonce: true,
+	    caption: "Data"
+	});
+}
+
+/****************************/
+function go() {
+	plotSelectedSample();
+	//renderTable();
+}

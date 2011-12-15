@@ -7,7 +7,7 @@
 <p />
 <label for="samples">Samples list:</label>
 <select id="samples" name="samples"></select>
-<input type="button" value="plot selected sample" onClick="plotSelectedSample(); return false;" />
+<input type="button" value="plot selected sample" onClick="go(); return false;" />
 <input type="button" value="reset" onClick="resetPlot(); return false;" />
 <p />
 
@@ -50,6 +50,8 @@
 		</td>
 	</tr>
 </table>
+<table id="datagrid"></table>
+<div id="pager"></div>
 
 
 
