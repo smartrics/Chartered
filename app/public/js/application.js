@@ -3,22 +3,22 @@ function dump(arr,level) {
 	var dumped_text = "";
 	if(!level) level = 0;
 	
-	//The padding given at the beginning of the line.
+	// The padding given at the beginning of the line.
 	var level_padding = "";
 	for(var j=0;j<level+1;j++) level_padding += "    ";
 	
-	if(typeof(arr) == 'object') { //Array/Hashes/Objects 
+	if(typeof(arr) == 'object') { // Array/Hashes/Objects
 		for(var item in arr) {
 			var value = arr[item];
 			
-			if(typeof(value) == 'object') { //If it is an array,
+			if(typeof(value) == 'object') { // If it is an array,
 				dumped_text += level_padding + "'" + item + "' ...\n";
 				dumped_text += dump(value,level+1);
 			} else {
 				dumped_text += level_padding + "'" + item + "' => \"" + value + "\"\n";
 			}
 		}
-	} else { //Stings/Chars/Numbers etc.
+	} else { // Stings/Chars/Numbers etc.
 		dumped_text = "===>"+arr+"<===("+typeof(arr)+")";
 	}
 	return dumped_text;
@@ -54,32 +54,51 @@ function DataHolder(label) {
 
 function References() {
 	this.t0 = 0;
-	this.q0 = 0;
 
-	this.minPrice = 0;
-	this.maxPrice = 0;
+	this.target="0";
+	
+	this.minPrice = -1;
+	this.maxPrice = -1;
 
-	this.minVolume = 0;
-	this.maxVolume = 0;
+	this.minQuantity = -1;
+	this.maxQuantity = -1;
+	
+	this.orderQuantity = 0;
+	this.orderPrice = 0;
 
 	this.t1 = 0;
 	
-	this.updateMinMaxVolume = function(volume) {
-		if(volume < this.minVolume) {
-			this.minVolume = volume;
+	this.updateMinMaxQuantity = function(q) {
+		if(q < this.minQuantity || this.minQuantity == -1) {
+			this.minQuantity = q;
 		}
-		if(volume > this.maxVolume) {
-			this.maxVolume = volume;
+		if(q > this.maxQuantity || this.maxQuantity == -1) {
+			this.maxQuantity = q;
 		}		
 	};
 	
 	this.updateMinMaxPrice = function(price) {
-		if(price < this.minPrice) {
+		if(price < this.minPrice || this.minPrice == -1) {
 			this.minPrice = price;
 		}
-		if(price > this.maxPrice) {
+		if(price > this.maxPrice || this.maxPrice == -1) {
 			this.maxPrice = price;
 		}		
+	};
+	
+	this.priceMinAxis = function() {
+		return this.minPrice;
+	};
+
+	this.priceMaxAxis = function() {
+		return this.maxPrice;
+	};
+	
+	this.quantityMinAxis = function() {
+		return this.minQuantity;
+	};
+	this.quantityMaxAxis = function() {
+		return this.maxQuantity;
 	};
 	return true;
 }
@@ -87,6 +106,9 @@ function References() {
 function PlotData() {
 	this.references = new References();
 	
+	this.mds_v = new DataHolder("MDS");
+	this.mds_p = new DataHolder("MDS");
+
 	this.or_v = new DataHolder("ORDER");
 	this.or_p = new DataHolder("ORDER");
 
@@ -111,11 +133,8 @@ function PlotData() {
 function collectData(series) {
 	var plotData = new PlotData();
 	plotData.references.t0 = series[0].timestamp == null ? 0 : series[0].timestamp;
-	plotData.references.q0 = toMio(series[0].orderQty);
-
-	plotData.references.minPrice = series[0].price;
-	plotData.references.maxPrice = series[0].price;
-
+	plotData.references.orderQuantity = toMio(series[0].orderQty);
+	plotData.references.orderPrice = toMio(series[0].price);
 	plotData.references.t1 = series[series.length-1].timestamp;
 	
 	for( var i = 0; i<series.length; i++) {
@@ -123,15 +142,17 @@ function collectData(series) {
 		var relativeTime = s.timestamp - plotData.references.t0;
 		if(s.event == "Order") {
 			plotData.or_v.points.push([0, toMio(s.orderQty)]);
-			plotData.or_v.points.venues.push(s.venue);
+			plotData.or_v.points.venues.push(s.rule);
 			plotData.or_p.points.push([0, s.price]);
-			plotData.or_p.points.venues.push(s.venue);
+			plotData.or_p.points.venues.push(s.rule);
+			plotData.references.updateMinMaxPrice(s.price);
 		} else if(s.event == "NewOrderSingle") {
 			plotData.nos_v.points.push([relativeTime, toMio(s.orderQty)]);
-			plotData.nos_v.points.venues.push(s.venue);
+			plotData.nos_v.points.venues.push(s.execAuthority);
 			plotData.nos_p.points.push([relativeTime, s.price]);
-			plotData.nos_p.points.venues.push(s.venue);
-		} else if(series[i].event == "ExecutionReport") {
+			plotData.nos_p.points.venues.push(s.execAuthority);
+			plotData.references.updateMinMaxPrice(s.price);
+		} else if(series[i].event == "ExecutionReport" && series[i].target == "0") {
 			if(s.execType=="REJECT") {
 				plotData.er_v_rej.points.push([relativeTime, toMio(s.lastShares)]);
 				plotData.er_p_rej.points.push([relativeTime, s.price]);
@@ -144,79 +165,121 @@ function collectData(series) {
 				plotData.er_p_canc.points.venues.push(s.venue);
 			} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
 				plotData.er_v_ls.points.push([relativeTime, toMio(s.lastShares)]);
-				plotData.er_v_oq.points.push([relativeTime, toMio(s.orderQty)]);
-				plotData.er_p.points.push([relativeTime, s.price]);
 				plotData.er_v_ls.points.venues.push(s.venue);
+
+				plotData.er_v_oq.points.push([relativeTime, toMio(s.cumQty)]);
 				plotData.er_v_oq.points.venues.push(s.venue);
+				
+				plotData.er_p.points.push([relativeTime, s.price]);
 				plotData.er_p.points.venues.push(s.venue);
 			}
-		} else if(series[i].event == "MarketDataEntry") {
-			// "market":"EBS", "price": "1.342189", "volume" : "10"
+			plotData.references.updateMinMaxPrice(s.price);
+		} else if(s.event == "MarketDataEntry") {
+			// "market":"EBS", "price": "1.342189", "quantity" : "10"
 			if(plotData.smile[relativeTime] == null) {
 				plotData.smile[relativeTime] = {};
 			}
 			if(plotData.smile[relativeTime][s.venue] == null) {
 				plotData.smile[relativeTime][s.venue] = new DataHolder(s.venue);
 			}
-			plotData.smile[relativeTime][s.venue].points.push([s.volume, s.price]);
-			plotData.smile[relativeTime][s.venue].points.venues.push(s.venue + "[" + s.volume + "@" + s.price + "]");
+			plotData.smile[relativeTime][s.venue].points.push([s.quantity, s.price]);
+			plotData.smile[relativeTime][s.venue].points.venues.push(s.venue + "[" + s.quantity + "@" + s.price + "]");
 			plotData.smile[relativeTime][s.venue].points.sort(function(ara, arb){ 
 				return ara[0] == arb[0] ? ara[1] - arb[1] : ara[0] - arb[0];
 			});
-			plotData.references.updateMinMaxVolume(s.volume);
+			plotData.references.updateMinMaxQuantity(s.quantity);
+			plotData.references.updateMinMaxPrice(s.price);
+		} else if(s.event == "List<MarketDataEntry>" || s.event=="MarketDataSnapshot") {
+			for(var e in s.entries) {
+				var entry = s.entries[e];
+				if(plotData.smile[relativeTime] == null) {
+					plotData.smile[relativeTime] = {};
+				}
+				if(plotData.smile[relativeTime][entry.venue] == null) {
+					plotData.smile[relativeTime][entry.venue] = new DataHolder(entry.venue);
+				}
+				plotData.smile[relativeTime][entry.venue].points.push([entry.quantity, entry.price]);
+				plotData.smile[relativeTime][entry.venue].points.venues.push(entry.venue + "[" + entry.quantity + "@" + entry.price + "]");
+				plotData.smile[relativeTime][entry.venue].points.sort(function(ara, arb){ 
+					return ara[0] == arb[0] ? ara[1] - arb[1] : ara[0] - arb[0];
+				});
+				plotData.references.updateMinMaxQuantity(entry.quantity);
+				plotData.references.updateMinMaxPrice(entry.price);
+			}
 		}
-		plotData.references.updateMinMaxPrice(s.price);
+	}
+	for(t in plotData.smile) {
+		plotData.mds_p.points.push([t, plotData.references.minPrice]);
+		plotData.mds_v.points.push([t, plotData.references.minQuantity]);
+		plotData.mds_p.points.venues.push("MDS(" + t + ")");
+		plotData.mds_v.points.venues.push("MDS(" + t + ")");
 	}
 	return plotData;
 } 
 
-function plotVolume(plotData, from, to) {
-	var data_options_volume = [{ 
+function plotQuantity(plotData, fromx, tox, fromy, toy) {
+	var data_options_quantity = [{ 
+		data: plotData.mds_v.points,
+		stack: false,
+		label: plotData.mds_v.label,
+        radius: 1,
+		lineWidth: 1,
+		bars: { show: true, barWidth: 1 },
+		points: { show: true, symbol: "diamond" }
+   },{ 
 		data: plotData.or_v.points,
 		stack: false,
 		label: plotData.or_v.label,
+		lineWidth: 1,
 		bars: { show: true, barWidth: 10 }
    },{ 
 		data: plotData.er_v_oq.points,
 		stack: true,
 		label: plotData.er_v_oq.label,
+		lineWidth: 1,
 		bars: { show: true, barWidth: 10 }
    },{ 
 		data: plotData.er_v_canc.points,
 		stack: false,
 		label: plotData.er_v_canc.label,
+		lineWidth: 1,
+        radius: 1,
 		points: { show: true, symbol: "cross" }
    },{ 
 		data: plotData.er_v_rej.points,
 		stack: false,
 		label: plotData.er_v_rej.label,
+		lineWidth: 1,
+        radius: 1,
 		points: { show: true, symbol: "cross" }
    }, { 
 		data: plotData.nos_v.points, 
 		stack: null,
 		label: plotData.nos_v.label,
 		points: { show: false },
+		lineWidth: 1,
 		bars: { show: true, barWidth: 10 }
    },{ 
 		data: plotData.er_v_ls.points,
 		stack: true,
+		lineWidth: 1,
 		label: plotData.er_v_ls.label,
 		bars: { show: true, barWidth: 10 }
    }];
  
-	var plot_options_volume = {
-	legend: { show: true, container: $("#placeholder_volume_legend"), margin: 1, noColumns: 6 },
+	var plot_options_quantity = {
+	legend: { show: true, container: $("#placeholder_quantity_legend"), margin: 1, noColumns: 6 },
      grid: { hoverable: true, clickable: true },
-     xaxis: { min: from, max: to },
-     yaxis: { min: -plotData.references.q0 * 0.05 },
-     selection: { mode: "x" }
+     xaxis: { min: fromx, max: tox },
+     yaxis: { min: fromy, max: toy },
+     selection: { mode: "xy" }
 	};	
-	doPlot("volume", data_options_volume, plot_options_volume);
+	doPlot("quantity", data_options_quantity, plot_options_quantity);
 }
 
 function plotSmile(time, plotData) {
 	var data_options_smile = [];
-	//console.log(dump(plotData.smile));
+	// console.log(dump(plotData.smile));
 	var selected;
 	for(var t in plotData.smile) {
 		if(t <= time) { 
@@ -231,41 +294,60 @@ function plotSmile(time, plotData) {
 			data: entry[v].points,
 			label: v,
 			stack: false,
+			lineWidth: 0,
 			bars: { show: true }
 		});
 	}
 	var plot_options_smile = {
 			legend: { show: true, container: $("#placeholder_smile_legend"), margin: 1, noColumns: 6 },
 			grid: { hoverable: true, clickable: true },
-		    xaxis: { min: plotData.references.minVolume * 0.95, max: plotData.references.maxVolume * 1.05 },
-		    yaxis: { min: plotData.references.minPrice * 0.95, max: plotData.references.maxPrice * 1.05 }
+		    xaxis: { min: -plotData.references.quantityMinAxis(), max: plotData.references.quantityMaxAxis() },
+		    yaxis: { min: plotData.references.priceMinAxis(), max: plotData.references.priceMaxAxis() }
 		};	
 
 	doPlot("smile", data_options_smile, plot_options_smile);
 }
 
-function plotPrices(plotData, from, to) {
+function plotPrices(plotData, fromx, tox, fromy, toy) {
 	var data_options_prices = [{ 
+		data: plotData.mds_p.points,
+		stack: false,
+        radius: 2,
+		lineWidth: 1,
+		bars: { show: true, barWidth: 1 },
+		label: plotData.mds_p.label,
+		points: { show: true, symbol: "diamond" }
+   },{ 
 		data: plotData.or_p.points,
 		label: plotData.or_p.label,
 		lines: { show: true, steps: false },
+        radius: 2,
+		lineWidth: 1,
 		points: { show: true, symbol: "triangle" }
 	},{ 
 		data: plotData.er_p.points,
 		label: plotData.er_p.label,	
 		lines: { show: true, steps: false },
+        radius: 2,
+		lineWidth: 1,
 		points: { show: true, symbol: "triangle" }
-    }, { 
+    },{ 
 		data: plotData.er_p_canc.points,
 		label: plotData.er_p_canc.label,
+        radius: 2,
+		lineWidth: 1,
 		points: { show: true, symbol: "cross" }
-    }, { 
+    },{ 
 		data: plotData.er_p_rej.points,
 		label: plotData.er_p_rej.label,
+        radius: 2,
+		lineWidth: 1,
 		points: { show: true, symbol: "cross" }
-    }, { 
+    },{ 
 		data: plotData.nos_p.points, 
+        radius: 2,
 		label: plotData.nos_p.label,
+		lineWidth: 1,
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "circle" }
     }];
@@ -273,9 +355,9 @@ function plotPrices(plotData, from, to) {
 	var plot_options_prices = {
 		legend: { show: true, container: $("#placeholder_prices_legend"), margin: 1, noColumns: 6 },
 		grid: { hoverable: true, clickable: true },
-		xaxis: { min: from, max: to },
-		yaxis: { min: plotData.references.minPrice * 0.99999 , max: plotData.references.maxPrice * 1.00001 },
-	     selection: { mode: "x" }
+		xaxis: { min: fromx, max: tox },
+		yaxis: { min: fromy, max: toy },
+	     selection: { mode: "xy" }
 		
 	};	
  	doPlot("prices", data_options_prices, plot_options_prices);	
@@ -284,12 +366,20 @@ function plotPrices(plotData, from, to) {
 function parseAndPlot(series) {
 	// todo: remove global plotData
 	plotData = collectData(series);
-	plotPricesAndVolume(plotData);
+	plotPricesAndQuantity(plotData);
 }
 
-function plotPricesAndVolume(plotData) {
-	plotVolume(plotData, -(plotData.references.t1-plotData.references.t0) * 0.05, (plotData.references.t1-plotData.references.t0) * 1.05);
-	plotPrices(plotData, -(plotData.references.t1-plotData.references.t0) * 0.05, (plotData.references.t1-plotData.references.t0) * 1.05);
+function plotPricesAndQuantity(plotData) {
+	plotQuantity(plotData, 
+			-(plotData.references.t1-plotData.references.t0) * 0.05, 
+			(plotData.references.t1-plotData.references.t0) * 1.05,
+			plotData.references.quantityMinAxis(),
+			plotData.references.quantityMaxAxis());
+	plotPrices(plotData, 
+			-(plotData.references.t1-plotData.references.t0) * 0.05, 
+			(plotData.references.t1-plotData.references.t0) * 1.05,
+			plotData.references.priceMinAxis(),
+			plotData.references.priceMaxAxis());
 }
 
 function showTooltip(x, y, contents) {
@@ -333,11 +423,16 @@ function plotHover(event, pos, item) {
 }
 
 function plotSelected (event, ranges) {
-    var from = ranges.xaxis.from.toFixed(1);
-	var to = ranges.xaxis.to.toFixed(1);
-	notify("Selected range[" + from + ", " + to + "]");
-	plotVolume(plotData, from, to);
-	plotPrices(plotData, from, to);
+    var from_x = ranges.xaxis.from.toFixed(2);
+	var to_x = ranges.xaxis.to.toFixed(2);
+    var from_y = ranges.yaxis.from.toFixed(10);
+	var to_y = ranges.yaxis.to.toFixed(10);
+	if(event.currentTarget.id.indexOf("quantity") >=0) {
+		plotQuantity(plotData, from_x, to_x, from_y, to_y);
+	}
+	if(event.currentTarget.id.indexOf("price") >=0) {
+		plotPrices(plotData, from_x, to_x, from_y, to_y);
+	}
 }
 
 function doPlot(type, data_options, plot_options) {
@@ -359,12 +454,12 @@ function plotSelectedSample() {
 
 function initializePlot() {
 	doPlot("prices", [], {});
-	doPlot("volume", [], {});
+	doPlot("quantity", [], {});
 	doPlot("smile", [], {});
 }
 
 function resetPlot() {
-	plotPricesAndVolume(plotData);	
+	plotPricesAndQuantity(plotData);	
 }
 
 function initialize() {

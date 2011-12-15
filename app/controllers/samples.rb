@@ -6,7 +6,7 @@ get "/samples" do
   (json_files + log_files).sort.each do | f |
     ret << { "file_name" => File.basename(f) }
   end
-  
+
   content_type 'application/json', :charset => 'utf-8'
   my_json = ret.to_s
   my_json.gsub("=>", ":")
@@ -19,5 +19,9 @@ get "/samples/:name" do
   last_modified = Date.new
   cache_control = :no_cache
   content_type 'application/json', :charset => 'utf-8'
+  sample.strip!
+  sample.chop! if sample.end_with?(",")
+  sample = "[\n#{sample}\n]" unless sample.start_with?("[")
+  puts sample
   sample
 end
