@@ -1,6 +1,5 @@
 # Disable Rake-environment-task framework detection by uncommenting/setting to false
 # Warbler.framework_detection = false
-
 # Warbler web application assembly configuration file
 Warbler::Config.new do |config|
   # Features: additional options controlling how the jar is built.
@@ -11,7 +10,7 @@ Warbler::Config.new do |config|
   config.features = %w(executable)
 
   # Application directories to be included in the webapp.
-  config.dirs = %w(app config tmp)
+  config.dirs = %w(app config)
 
   # Additional files/directories to include, above those in config.dirs
   config.includes = FileList["config.ru"]
@@ -24,12 +23,6 @@ Warbler::Config.new do |config|
   # JRuby and JRuby-Rack are pre-loaded in this list.  Be sure to include your
   # own versions if you directly set the value
   # config.java_libs += FileList["lib/java/*.jar"]
-  if ENV["JRUBY_RACK_SRC"]
-    config.java_libs.delete_if do | f |
-      f =~ /jruby-rack[^\/]+\.jar/
-    end
-    config.java_libs += FileList["../../target/jruby-rack*.jar"]
-  end
     
   # Loose Java classes and miscellaneous files to be included.
   # config.java_classes = FileList["target/classes/**.*"]
@@ -109,7 +102,7 @@ Warbler::Config.new do |config|
 
   # Files to be included in the root of the webapp.  Note that files in public
   # will have the leading 'public/' part of the path stripped during staging.
-  config.public_html = FileList["app/public/**/*"]
+  # config.public_html = FileList["app/public/**/*"]
 
   # Pathmaps for controlling how public HTML files are copied into the .war
   # config.pathmaps.public_html = ["%{public/,}p"]
