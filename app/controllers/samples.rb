@@ -1,15 +1,19 @@
 get "/samples" do
   samples_dir = params['samples_dir']
+  puts "Fetching samples from [samples_dir=#{samples_dir}]"
   log_files = Dir["#{samples_dir}/*.log"]
   json_files = Dir["#{samples_dir}/*.json"]
+  js_files = Dir["#{samples_dir}/*.js"]
   ret = []
-  (json_files + log_files).sort.each do | f |
+  (json_files + js_files + log_files).sort.each do | f |
     ret << { "file_name" => File.basename(f) }
   end
 
   content_type 'application/json', :charset => 'utf-8'
   my_json = ret.to_s
-  my_json.gsub("=>", ":")
+  ret = my_json.gsub("=>", ":")
+  puts "Fetched samples from [samples_dir=#{samples_dir}]: #{ret}"
+  ret
 end
 
 get "/samples/:name" do

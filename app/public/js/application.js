@@ -25,7 +25,7 @@ function dump(arr,level) {
 }
 
 function refreshSamplesList() {
-	$.getJSON("/samples", {
+	$.getJSON("samples", {
 		samples_dir : $("#samples_dir").val()
 	}, function(j) {
 		var options = '';
@@ -55,7 +55,7 @@ function DataHolder(label) {
 function References() {
 	this.t0 = 0;
 
-	this.target="0";
+	this.sorId="0";
 	
 	this.minPrice = -1;
 	this.maxPrice = -1;
@@ -67,6 +67,21 @@ function References() {
 	this.orderPrice = 0;
 
 	this.t1 = 0;
+	
+	this.isFromSor = function(s) {
+		return s.sender == this.sorId;
+	};
+	
+	this.isForSor = function(s) {
+		return s.target == this.sorId || s.execAuthority == this.sorId;
+	};
+	
+	this.sorY = function(s) {
+		if(this.isFromSor(s)) {
+			return 1;
+		};
+		return -1;
+	};
 	
 	this.updateMinMaxQuantity = function(q) {
 		if(q < this.minQuantity || this.minQuantity == -1) {
@@ -87,19 +102,24 @@ function References() {
 	};
 	
 	this.priceMinAxis = function() {
-		return this.minPrice;
+		return this.minPrice; // - this.percent((this.maxPrice - this.minPrice), 2);
 	};
 
 	this.priceMaxAxis = function() {
-		return this.maxPrice;
+		return this.maxPrice; // + this.percent((this.maxPrice - this.minPrice), 2);
 	};
 	
 	this.quantityMinAxis = function() {
-		return this.minQuantity;
+		return this.minQuantity; // - this.percent((this.maxQuantity - this.minQuantity), 2);
 	};
 	this.quantityMaxAxis = function() {
-		return this.maxQuantity;
+		return this.maxQuantity; // + this.percent((this.maxQuantity - this.minQuantity), 2);
 	};
+	
+	this.percent = function(v, pc) {
+		return (v * pc) / 100;
+	};
+	
 	return true;
 }
 
@@ -125,9 +145,41 @@ function PlotData() {
 	this.er_p_canc = new DataHolder("ER(Canc)");
 	this.er_p_rej = new DataHolder("ER(Rej)");
 
+	this.or_flow = new DataHolder("ORDER");
+	this.er_flow = new DataHolder("ER");
+	this.nos_flow = new DataHolder("NOS");
+	this.ocr_flow = new DataHolder("OCR");
+		
 	this.smile = {};
 	
 	return true;
+}
+
+function priceFormatter(v, axis) {
+	return v.toFixed(5);
+}
+
+function flowSourceFormatter(v, axis) {
+	if(v==1) {
+		return "market";
+	}
+	if(v==0) {
+		return "sor";
+	}
+	if(v==-1) {
+		return "client";
+	}
+	return "";
+}
+
+function quantityFormatter(v, axis) {
+	if(v>999999) {
+		return "" + (v / 1000000) + "M";
+	}
+	if(v>999) {
+		return "" + (v / 1000) + "K";
+	}
+	return v;
 }
 
 function collectData(series) {
@@ -146,34 +198,45 @@ function collectData(series) {
 			plotData.or_p.points.push([0, s.price]);
 			plotData.or_p.points.venues.push(s.rule);
 			plotData.references.updateMinMaxPrice(s.price);
+			plotData.or_flow.points.push([0, -1]);
+			plotData.or_flow.points.venues.push(s.sender + " " + s.side + " " + s.orderQty + " @ " + s.price + " (" + s.rule + ")");
 		} else if(s.event == "NewOrderSingle") {
 			plotData.nos_v.points.push([relativeTime, toMio(s.orderQty)]);
 			plotData.nos_v.points.venues.push(s.execAuthority);
 			plotData.nos_p.points.push([relativeTime, s.price]);
 			plotData.nos_p.points.venues.push(s.execAuthority);
 			plotData.references.updateMinMaxPrice(s.price);
-		} else if(series[i].event == "ExecutionReport" && series[i].target == "0") {
-			if(s.execType=="REJECT") {
-				plotData.er_v_rej.points.push([relativeTime, toMio(s.lastShares)]);
-				plotData.er_p_rej.points.push([relativeTime, s.price]);
-				plotData.er_v_rej.points.venues.push(s.venue);
-				plotData.er_p_rej.points.venues.push(s.venue);
-			} else if(s.execType=="CANCEL") {
-				plotData.er_v_canc.points.push([relativeTime, toMio(s.lastShares)]);
-				plotData.er_p_canc.points.push([relativeTime, s.price]);
-				plotData.er_v_canc.points.venues.push(s.venue);
-				plotData.er_p_canc.points.venues.push(s.venue);
-			} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
-				plotData.er_v_ls.points.push([relativeTime, toMio(s.lastShares)]);
-				plotData.er_v_ls.points.venues.push(s.venue);
-
-				plotData.er_v_oq.points.push([relativeTime, toMio(s.cumQty)]);
-				plotData.er_v_oq.points.venues.push(s.venue);
-				
-				plotData.er_p.points.push([relativeTime, s.price]);
-				plotData.er_p.points.venues.push(s.venue);
+			plotData.nos_flow.points.push([relativeTime, plotData.references.sorY(s)]);
+			plotData.nos_flow.points.venues.push(s.sender + "->" + s.execAuthority + " [" + s.orderQty + " @ " + s.price + "]");
+		} else if(s == "ExecutionReport") {
+			plotData.er_flow.points.push([relativeTime, plotData.references.sorY(s)]);
+			var source = s.sender == null ? (s.venue == null ? "unknown" : s.venue) : s.sender;
+			var dest = s.target == null ? (s.execAuthority == null ? "unknown" : s.execAuthority) : s.target;
+			var p = s.lastShares == null ? "" : "[" + s.lastShares + " @ " + s.price + "]";
+			plotData.er_flow.points.venues.push(source + "->" + dest + "[" + s.execType + "/" + s.ordStatus + "] " + p);
+			if(plotData.references.isForSor(s)) {
+				if(s.execType=="REJECT") {
+					plotData.er_v_rej.points.push([relativeTime, toMio(s.lastShares)]);
+					plotData.er_p_rej.points.push([relativeTime, s.price]);
+					plotData.er_v_rej.points.venues.push(s.venue);
+					plotData.er_p_rej.points.venues.push(s.venue);
+				} else if(s.execType=="CANCEL") {
+					plotData.er_v_canc.points.push([relativeTime, toMio(s.lastShares)]);
+					plotData.er_p_canc.points.push([relativeTime, s.price]);
+					plotData.er_v_canc.points.venues.push(s.venue);
+					plotData.er_p_canc.points.venues.push(s.venue);
+				} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
+					plotData.er_v_ls.points.push([relativeTime, toMio(s.lastShares)]);
+					plotData.er_v_ls.points.venues.push(s.venue);
+	
+					plotData.er_v_oq.points.push([relativeTime, toMio(s.cumQty)]);
+					plotData.er_v_oq.points.venues.push(s.venue);
+					
+					plotData.er_p.points.push([relativeTime, s.price]);
+					plotData.er_p.points.venues.push(s.venue);
+				} 
+				plotData.references.updateMinMaxPrice(s.price);
 			}
-			plotData.references.updateMinMaxPrice(s.price);
 		} else if(s.event == "MarketDataEntry") {
 			// "market":"EBS", "price": "1.342189", "quantity" : "10"
 			if(plotData.smile[relativeTime] == null) {
@@ -217,33 +280,68 @@ function collectData(series) {
 	return plotData;
 } 
 
+function plotFlow(plotData, fromx, tox, fromy, toy) {
+	var data_options_flow = [{ 
+		data: plotData.or_flow.points,
+		stack: false,
+		label: plotData.or_flow.label,
+        radius: 1,
+		lineWidth: 1,
+		bars: { show: true, barWidth: 10 }
+   },{ 
+		data: plotData.nos_flow.points,
+		stack: false,
+		label: plotData.nos_flow.label,
+		lineWidth: 1,
+		bars: { show: true, barWidth: 10 }
+   },{ 
+		data: plotData.er_flow.points,
+		stack: true,
+		label: plotData.er_flow.label,
+		lineWidth: 1,
+		bars: { show: true, barWidth: 10 }
+   }];
+	
+	var plot_options_flow = {
+			legend: { show: true, container: $("#placeholder_flow_legend"), margin: 1, noColumns: 6 },
+		     grid: { hoverable: true, clickable: true },
+		     xaxis: { mode: 'time', min: fromx, max: tox },
+		     yaxis: { min: fromy, max: toy, tickFormatter: flowSourceFormatter },
+		     selection: { mode: "x" }
+	};	
+	doPlot("flow", data_options_flow, plot_options_flow);
+   
+}
+
 function plotQuantity(plotData, fromx, tox, fromy, toy) {
 	var data_options_quantity = [{ 
 		data: plotData.mds_v.points,
 		stack: false,
 		label: plotData.mds_v.label,
         radius: 1,
+        color:"000", 
 		lineWidth: 1,
-		bars: { show: true, barWidth: 1 },
 		points: { show: true, symbol: "diamond" }
    },{ 
 		data: plotData.or_v.points,
 		stack: false,
 		label: plotData.or_v.label,
 		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
+		bars: { show: true, barWidth: 1 },
+		points: { show: true, symbol: "diamond" }
    },{ 
-		data: plotData.er_v_oq.points,
+		data: plotData.er_v_ls.points,
 		stack: true,
-		label: plotData.er_v_oq.label,
 		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
+		label: plotData.er_v_ls.label,
+		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.er_v_canc.points,
 		stack: false,
 		label: plotData.er_v_canc.label,
 		lineWidth: 1,
         radius: 1,
+		bars: { show: true, barWidth: 1 },
 		points: { show: true, symbol: "cross" }
    },{ 
 		data: plotData.er_v_rej.points,
@@ -251,6 +349,7 @@ function plotQuantity(plotData, fromx, tox, fromy, toy) {
 		label: plotData.er_v_rej.label,
 		lineWidth: 1,
         radius: 1,
+		bars: { show: true, barWidth: 1 },
 		points: { show: true, symbol: "cross" }
    }, { 
 		data: plotData.nos_v.points, 
@@ -258,20 +357,15 @@ function plotQuantity(plotData, fromx, tox, fromy, toy) {
 		label: plotData.nos_v.label,
 		points: { show: false },
 		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
-   },{ 
-		data: plotData.er_v_ls.points,
-		stack: true,
-		lineWidth: 1,
-		label: plotData.er_v_ls.label,
-		bars: { show: true, barWidth: 10 }
+		bars: { show: true, barWidth: 1 },
+		points: { show: true, symbol: "square" }
    }];
- 
+	
 	var plot_options_quantity = {
 	legend: { show: true, container: $("#placeholder_quantity_legend"), margin: 1, noColumns: 6 },
      grid: { hoverable: true, clickable: true },
-     xaxis: { min: fromx, max: tox },
-     yaxis: { min: fromy, max: toy },
+     xaxis: { min: fromx, max: tox, mode: 'time' },
+     yaxis: { min: fromy, max: toy, tickFormatter: quantityFormatter },
      selection: { mode: "xy" }
 	};	
 	doPlot("quantity", data_options_quantity, plot_options_quantity);
@@ -301,8 +395,8 @@ function plotSmile(time, plotData) {
 	var plot_options_smile = {
 			legend: { show: true, container: $("#placeholder_smile_legend"), margin: 1, noColumns: 6 },
 			grid: { hoverable: true, clickable: true },
-		    xaxis: { min: -plotData.references.quantityMinAxis(), max: plotData.references.quantityMaxAxis() },
-		    yaxis: { min: plotData.references.priceMinAxis(), max: plotData.references.priceMaxAxis() }
+		    xaxis: { min: -plotData.references.quantityMinAxis(), max: plotData.references.quantityMaxAxis(), tickFormatter: quantityFormatter },
+		    yaxis: { min: plotData.references.priceMinAxis(), max: plotData.references.priceMaxAxis(), tickFormatter: priceFormatter }
 		};	
 
 	doPlot("smile", data_options_smile, plot_options_smile);
@@ -313,6 +407,7 @@ function plotPrices(plotData, fromx, tox, fromy, toy) {
 		data: plotData.mds_p.points,
 		stack: false,
         radius: 2,
+        color:"000", 
 		lineWidth: 1,
 		bars: { show: true, barWidth: 1 },
 		label: plotData.mds_p.label,
@@ -355,8 +450,8 @@ function plotPrices(plotData, fromx, tox, fromy, toy) {
 	var plot_options_prices = {
 		legend: { show: true, container: $("#placeholder_prices_legend"), margin: 1, noColumns: 6 },
 		grid: { hoverable: true, clickable: true },
-		xaxis: { min: fromx, max: tox },
-		yaxis: { min: fromy, max: toy },
+		xaxis: { min: fromx, max: tox, mode: 'time' },
+		yaxis: { min: fromy, max: toy, tickFormatter: priceFormatter },
 	     selection: { mode: "xy" }
 		
 	};	
@@ -380,6 +475,10 @@ function plotPricesAndQuantity(plotData) {
 			(plotData.references.t1-plotData.references.t0) * 1.05,
 			plotData.references.priceMinAxis(),
 			plotData.references.priceMaxAxis());
+	plotFlow(plotData, 
+			-(plotData.references.t1-plotData.references.t0) * 0.05, 
+			(plotData.references.t1-plotData.references.t0) * 1.05,
+			-1, 1);
 }
 
 function showTooltip(x, y, contents) {
@@ -413,11 +512,13 @@ function plotHover(event, pos, item) {
             var points = item.series.data[item.dataIndex];
             var t = parseInt(points[0]);
             showTooltip(item.pageX, item.pageY, venue);
+            notify(item.series.label +": time=" + t + ", value=" + points[1] + ", venue=" + venue);
             plotSmile(t, plotData);
         }
     }
     else {
         $("#tooltip").remove();
+        notify("<br/>");
     	previousPoint = null;            
     }
 }
@@ -433,6 +534,9 @@ function plotSelected (event, ranges) {
 	if(event.currentTarget.id.indexOf("price") >=0) {
 		plotPrices(plotData, from_x, to_x, from_y, to_y);
 	}
+	if(event.currentTarget.id.indexOf("flow") >=0) {
+		plotFlow(plotData, from_x, to_x, from_y, to_y);
+	}
 }
 
 function doPlot(type, data_options, plot_options) {
@@ -444,7 +548,7 @@ function doPlot(type, data_options, plot_options) {
 
 function plotSelectedSample() {
 	var sel = $("#samples option:selected").val();
-	$.getJSON("/samples/" + sel, {
+	$.getJSON("samples/" + sel, {
 		samples_dir : $("#samples_dir").val()
 	}, function(series) {
 		notify("Downloaded '" + sel );
@@ -456,6 +560,7 @@ function initializePlot() {
 	doPlot("prices", [], {});
 	doPlot("quantity", [], {});
 	doPlot("smile", [], {});
+	doPlot("flow", [], {});
 }
 
 function resetPlot() {
@@ -474,33 +579,7 @@ function notifyAppend(message)  {
 	$("#notificationarea").insertHtml("<br/><code>[" + new Date() + "] <br/>" + message + "</code>");
 }
 
-
-/******* jqgrid ******/
-function renderTable() {
-	var sel = $("#samples option:selected").val();
-	jQuery("#datagrid").jqGrid({
-	   	url:"/samples/" + sel,
-		datatype: "json",
-	   	colNames:['TS','Event', 'ClOrdId', 'OrdId','Side','OrdQty','Price'],
-	   	colModel:[
-	   		{name:'timestamp',index:'timestamp', width:60, sorttype:"int"},
-	   		{name:'event',index:'event', width:90},
-	   		{name:'clOrderId',index:'clOrderId', width:100},
-	   		{name:'orderId',index:'orderId', width:80},
-	   		{name:'side',index:'side', width:80},		
-	   		{name:'orderQty',index:'orderQty'},		
-	   		{name:'price',index:'price'}		
-	   	],
-	   	sortname: 'timestamp',
-	    viewrecords: true,
-	    sortorder: "desc",
-	    loadonce: true,
-	    caption: "Data"
-	});
-}
-
-/****************************/
+/** ************************* */
 function go() {
 	plotSelectedSample();
-	//renderTable();
 }
