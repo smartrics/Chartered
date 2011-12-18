@@ -1,6 +1,7 @@
+require 'cgi'
+
 get "/samples" do
   samples_dir = params['samples_dir']
-  puts "Fetching samples from [samples_dir=#{samples_dir}]"
   log_files = Dir["#{samples_dir}/*.log"]
   json_files = Dir["#{samples_dir}/*.json"]
   js_files = Dir["#{samples_dir}/*.js"]
@@ -12,20 +13,34 @@ get "/samples" do
   content_type 'application/json', :charset => 'utf-8'
   my_json = ret.to_s
   ret = my_json.gsub("=>", ":")
-  puts "Fetched samples from [samples_dir=#{samples_dir}]: #{ret}"
   ret
 end
 
 get "/samples/:name" do
   samples_dir = params['samples_dir']
   name = params[:name]
-  sample = File.new(File.join(samples_dir, name), "r").read
-  last_modified = Date.new
-  cache_control = :no_cache
   content_type 'application/json', :charset => 'utf-8'
-  sample.strip!
-  sample.chop! if sample.end_with?(",")
-  sample = "[\n#{sample}\n]" unless sample.start_with?("[")
-  puts sample
-  sample
+  path = File.join(samples_dir, name)
+  found = false
+  found = true if File.exist?(path)
+  begin
+    path = File.join(samples_dir, CGI.escape(name))
+    found = true if File.exist?(path)
+  end unless(found)
+  if(found)
+    sample = File.new(path, "r").read
+    last_modified = Date.new
+    cache_control = :no_cache
+    sample.strip!
+    sample.chop! if sample.end_with?(",")
+    sample = "[\n#{sample}\n]" unless sample.start_with?("[")
+    status 200
+    sample
+  else
+    #status 404
+    status 200
+    ret = <<EOS
+      {"error" : "File selected doent't exist: #{name}" }
+EOS
+  end
 end

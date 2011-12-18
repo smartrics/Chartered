@@ -78,9 +78,9 @@ function References() {
 	
 	this.sorY = function(s) {
 		if(this.isFromSor(s)) {
-			return 1;
+			return -1;
 		};
-		return -1;
+		return 1;
 	};
 	
 	this.updateMinMaxQuantity = function(q) {
@@ -208,7 +208,7 @@ function collectData(series) {
 			plotData.references.updateMinMaxPrice(s.price);
 			plotData.nos_flow.points.push([relativeTime, plotData.references.sorY(s)]);
 			plotData.nos_flow.points.venues.push(s.sender + "->" + s.execAuthority + " [" + s.orderQty + " @ " + s.price + "]");
-		} else if(s == "ExecutionReport") {
+		} else if(s.event == "ExecutionReport") {
 			plotData.er_flow.points.push([relativeTime, plotData.references.sorY(s)]);
 			var source = s.sender == null ? (s.venue == null ? "unknown" : s.venue) : s.sender;
 			var dest = s.target == null ? (s.execAuthority == null ? "unknown" : s.execAuthority) : s.target;
@@ -217,14 +217,18 @@ function collectData(series) {
 			if(plotData.references.isForSor(s)) {
 				if(s.execType=="REJECT") {
 					plotData.er_v_rej.points.push([relativeTime, toMio(s.lastShares)]);
-					plotData.er_p_rej.points.push([relativeTime, s.price]);
 					plotData.er_v_rej.points.venues.push(s.venue);
+					
+					plotData.er_p_rej.points.push([relativeTime, s.price]);
 					plotData.er_p_rej.points.venues.push(s.venue);
+				
 				} else if(s.execType=="CANCEL") {
-					plotData.er_v_canc.points.push([relativeTime, toMio(s.lastShares)]);
 					plotData.er_p_canc.points.push([relativeTime, s.price]);
-					plotData.er_v_canc.points.venues.push(s.venue);
 					plotData.er_p_canc.points.venues.push(s.venue);
+
+					plotData.er_v_canc.points.push([relativeTime, toMio(s.lastShares)]);
+					plotData.er_v_canc.points.venues.push(s.venue);
+				
 				} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
 					plotData.er_v_ls.points.push([relativeTime, toMio(s.lastShares)]);
 					plotData.er_v_ls.points.venues.push(s.venue);
@@ -285,21 +289,17 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 		data: plotData.or_flow.points,
 		stack: false,
 		label: plotData.or_flow.label,
-        radius: 1,
-		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
+		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.nos_flow.points,
 		stack: false,
 		label: plotData.nos_flow.label,
-		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
+		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.er_flow.points,
 		stack: true,
 		label: plotData.er_flow.label,
-		lineWidth: 1,
-		bars: { show: true, barWidth: 10 }
+		bars: { show: true, barWidth: 1 }
    }];
 	
 	var plot_options_flow = {
@@ -316,50 +316,31 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 function plotQuantity(plotData, fromx, tox, fromy, toy) {
 	var data_options_quantity = [{ 
 		data: plotData.mds_v.points,
-		stack: false,
 		label: plotData.mds_v.label,
-        radius: 1,
         color:"000", 
-		lineWidth: 1,
-		points: { show: true, symbol: "diamond" }
+		points: { show: true, symbol: "diamond", lineWidth: 1 }
    },{ 
 		data: plotData.or_v.points,
-		stack: false,
 		label: plotData.or_v.label,
-		lineWidth: 1,
-		bars: { show: true, barWidth: 1 },
-		points: { show: true, symbol: "diamond" }
+		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.er_v_ls.points,
-		stack: true,
-		lineWidth: 1,
 		label: plotData.er_v_ls.label,
 		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.er_v_canc.points,
-		stack: false,
 		label: plotData.er_v_canc.label,
-		lineWidth: 1,
-        radius: 1,
-		bars: { show: true, barWidth: 1 },
-		points: { show: true, symbol: "cross" }
+		bars: { show: true, barWidth: 1 }
    },{ 
 		data: plotData.er_v_rej.points,
-		stack: false,
 		label: plotData.er_v_rej.label,
-		lineWidth: 1,
-        radius: 1,
-		bars: { show: true, barWidth: 1 },
-		points: { show: true, symbol: "cross" }
+		bars: { show: true, barWidth: 1 }
    }, { 
 		data: plotData.nos_v.points, 
-		stack: null,
 		label: plotData.nos_v.label,
 		points: { show: false },
-		lineWidth: 1,
-		bars: { show: true, barWidth: 1 },
-		points: { show: true, symbol: "square" }
-   }];
+		bars: { show: true, barWidth: 1 }
+	}];
 	
 	var plot_options_quantity = {
 	legend: { show: true, container: $("#placeholder_quantity_legend"), margin: 1, noColumns: 6 },
@@ -405,46 +386,34 @@ function plotSmile(time, plotData) {
 function plotPrices(plotData, fromx, tox, fromy, toy) {
 	var data_options_prices = [{ 
 		data: plotData.mds_p.points,
-		stack: false,
-        radius: 2,
         color:"000", 
-		lineWidth: 1,
-		bars: { show: true, barWidth: 1 },
 		label: plotData.mds_p.label,
-		points: { show: true, symbol: "diamond" }
+		points: { show: true, symbol: "diamond", lineWidth: 1 }
    },{ 
 		data: plotData.or_p.points,
 		label: plotData.or_p.label,
 		lines: { show: true, steps: false },
-        radius: 2,
-		lineWidth: 1,
-		points: { show: true, symbol: "triangle" }
+		points: { show: true, symbol: "triangle", lineWidth: 1 }
 	},{ 
 		data: plotData.er_p.points,
 		label: plotData.er_p.label,	
 		lines: { show: true, steps: false },
-        radius: 2,
-		lineWidth: 1,
-		points: { show: true, symbol: "triangle" }
+		points: { show: true, symbol: "triangle", lineWidth: 1 }
     },{ 
 		data: plotData.er_p_canc.points,
 		label: plotData.er_p_canc.label,
-        radius: 2,
-		lineWidth: 1,
-		points: { show: true, symbol: "cross" }
+		lines: { show: true, steps: false },
+		points: { show: true, symbol: "cross", lineWidth: 1 }
     },{ 
 		data: plotData.er_p_rej.points,
 		label: plotData.er_p_rej.label,
-        radius: 2,
-		lineWidth: 1,
-		points: { show: true, symbol: "cross" }
+		lines: { show: true, steps: false },
+		points: { show: true, symbol: "cross", lineWidth: 1 }
     },{ 
 		data: plotData.nos_p.points, 
-        radius: 2,
 		label: plotData.nos_p.label,
-		lineWidth: 1,
 		lines: { show: true, steps: false },
-		points: { show: true, symbol: "circle" }
+		points: { show: true, symbol: "circle", lineWidth: 1 }
     }];
 	
 	var plot_options_prices = {
@@ -551,8 +520,12 @@ function plotSelectedSample() {
 	$.getJSON("samples/" + sel, {
 		samples_dir : $("#samples_dir").val()
 	}, function(series) {
-		notify("Downloaded '" + sel );
-		parseAndPlot(series);
+		if(series.error!=null) {
+			error(series.error);
+		} else {
+			notify("Downloaded '" + sel );
+			parseAndPlot(series);
+		}
 	});
 }
 
@@ -574,6 +547,9 @@ function initialize() {
 
 function notify(message)  {
 	$("#notificationarea").html("<code>[" + new Date() + "] <br/>" + message + "</code>");
+}
+function error(message)  {
+	$("#notificationarea").html("<code>[" + new Date() + "] <br/><font color='red'>" + message + "</font></code>");
 }
 function notifyAppend(message)  {
 	$("#notificationarea").insertHtml("<br/><code>[" + new Date() + "] <br/>" + message + "</code>");
