@@ -47,7 +47,7 @@ function toMio(q) {
 function DataHolder(label) {
 	this.points = [];
 	this.points.venues = [];
-	this.venues = [];
+	this.enabled = true;
 	this.label = label;
 	return true;
 }
@@ -128,6 +128,9 @@ function PlotData() {
 	
 	this.mds_v = new DataHolder("MDS");
 	this.mds_p = new DataHolder("MDS");
+	
+	this.mds_sel_v = new DataHolder("MDSs");
+	this.mds_sel_p = new DataHolder("MDSs");
 
 	this.or_v = new DataHolder("ORDER");
 	this.or_p = new DataHolder("ORDER");
@@ -256,7 +259,7 @@ function collectData(series) {
 			});
 			plotData.references.updateMinMaxQuantity(s.quantity);
 			plotData.references.updateMinMaxPrice(s.price);
-		} else if(s.event == "List<MarketDataEntry>" || s.event=="MarketDataSnapshot") {
+		} else if(s.event == "List<MarketDataEntry>" /*|| s.event=="MarketDataSnapshot"*/) {
 			for(var e in s.entries) {
 				var entry = s.entries[e];
 				if(plotData.smile[relativeTime] == null) {
@@ -273,7 +276,7 @@ function collectData(series) {
 				plotData.references.updateMinMaxQuantity(entry.quantity);
 				plotData.references.updateMinMaxPrice(entry.price);
 			}
-		}
+		} 
 	}
 	for(t in plotData.smile) {
 		plotData.mds_p.points.push([t, plotData.references.minPrice]);
@@ -315,28 +318,28 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 
 function plotQuantity(plotData, fromx, tox, fromy, toy) {
 	var data_options_quantity = [{ 
-		data: plotData.mds_v.points,
+		data: plotData.mds_v.enabled ? plotData.mds_v.points : [],
 		label: plotData.mds_v.label,
         color:"000", 
 		points: { show: true, symbol: "diamond", lineWidth: 1 }
    },{ 
-		data: plotData.or_v.points,
+		data: plotData.or_v.enabled ? plotData.or_v.points : [],
 		label: plotData.or_v.label,
 		bars: { show: true, barWidth: 1 }
    },{ 
-		data: plotData.er_v_ls.points,
+		data: plotData.er_v_ls.enabled ? plotData.er_v_ls.points : [],
 		label: plotData.er_v_ls.label,
 		bars: { show: true, barWidth: 1 }
    },{ 
-		data: plotData.er_v_canc.points,
+		data: plotData.er_v_canc.enabled ? plotData.er_v_canc.points : [],
 		label: plotData.er_v_canc.label,
 		bars: { show: true, barWidth: 1 }
    },{ 
-		data: plotData.er_v_rej.points,
+		data: plotData.er_v_rej.enabled ? plotData.er_v_rej.points : [],
 		label: plotData.er_v_rej.label,
 		bars: { show: true, barWidth: 1 }
    }, { 
-		data: plotData.nos_v.points, 
+		data: plotData.nos_v.enabled ? plotData.nos_v.points : [], 
 		label: plotData.nos_v.label,
 		points: { show: false },
 		bars: { show: true, barWidth: 1 }
@@ -385,32 +388,32 @@ function plotSmile(time, plotData) {
 
 function plotPrices(plotData, fromx, tox, fromy, toy) {
 	var data_options_prices = [{ 
-		data: plotData.mds_p.points,
+		data: plotData.mds_p.enabled ? plotData.mds_p.points : [],
         color:"000", 
 		label: plotData.mds_p.label,
 		points: { show: true, symbol: "diamond", lineWidth: 1 }
    },{ 
-		data: plotData.or_p.points,
+		data: plotData.or_p.enabled ? plotData.or_p.points : [],
 		label: plotData.or_p.label,
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "triangle", lineWidth: 1 }
 	},{ 
-		data: plotData.er_p.points,
+		data: plotData.er_p.enabled? plotData.er_p.points : [],
 		label: plotData.er_p.label,	
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "triangle", lineWidth: 1 }
     },{ 
-		data: plotData.er_p_canc.points,
+		data: plotData.er_p_canc.enabled ? plotData.er_p_canc.points : [],
 		label: plotData.er_p_canc.label,
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "cross", lineWidth: 1 }
     },{ 
-		data: plotData.er_p_rej.points,
+		data: plotData.er_p_rej.enabled ? plotData.er_p_rej.points : [],
 		label: plotData.er_p_rej.label,
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "cross", lineWidth: 1 }
     },{ 
-		data: plotData.nos_p.points, 
+		data: plotData.nos_p.enabled ? plotData.nos_p.points : [], 
 		label: plotData.nos_p.label,
 		lines: { show: true, steps: false },
 		points: { show: true, symbol: "circle", lineWidth: 1 }
@@ -434,6 +437,7 @@ function parseAndPlot(series) {
 }
 
 function plotPricesAndQuantity(plotData) {
+	updateEnabledPlots(plotData);
 	plotQuantity(plotData, 
 			-(plotData.references.t1-plotData.references.t0) * 0.05, 
 			(plotData.references.t1-plotData.references.t0) * 1.05,
@@ -540,8 +544,48 @@ function resetPlot() {
 	plotPricesAndQuantity(plotData);	
 }
 
+function updateEnabledPlots(plotData) {
+	if(plotData == null) {
+		return false;
+	}
+	var choiceContainer = $("#displaychoices");
+	choiceContainer.find("input").each(function () {
+        var key = $(this).attr("name");
+        var checked = $(this).attr("checked");
+        if(key=="ER") {
+        	plotData.er_v_ls.enabled = checked;
+        	plotData.er_v_oq.enabled = checked;
+        	plotData.er_v_canc.enabled = checked;
+        	plotData.er_v_rej.enabled = checked;
+        	plotData.er_p.enabled = checked;
+        	plotData.er_p_canc.enabled = checked;
+        	plotData.er_p_rej.enabled = checked;
+        	plotData.er_flow.enabled = checked;
+        }
+        if(key=="NOS") {
+        	plotData.nos_v.enabled = checked;
+        	plotData.nos_p.enabled = checked;
+        	plotData.nos_flow.enabled = checked;
+        }
+        if(key=="MDS") {
+        	plotData.mds_v.enabled = checked;
+        	plotData.mds_p.enabled = checked;
+        }
+    });
+	
+}
+
+function initializeDisplaySelections() {
+	var choiceContainer = $("#displaychoices");
+	choiceContainer.find("input").click(function(){
+		updateEnabledPlots(plotData);
+		plotPricesAndQuantity(plotData);	
+	});
+}
+
 function initialize() {
 	refreshSamplesList();
+	initializeDisplaySelections();
 	initializePlot();
 }
 
