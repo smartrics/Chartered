@@ -5,16 +5,25 @@
 	value="<%= @samples_dir %>" />
 <input type="button" value="refresh samples list" onClick="refreshSamplesList(); return false;" />
 <p />
-<label for="samples">Samples list:</label>
-<select id="samples" name="samples"></select>
-<input type="button" value="plot selected sample" onClick="go(); return false;" />
-<input type="button" value="reset" onClick="resetPlot(); return false;" />
+<table>
+	<tr>
+		<td><label for="samples">Samples</label></td>
+		<td><select id="samples" name="samples"></select></td>
+		<td><input type="button" value="plot selected sample" onClick="go(); return false;" /></td>
+		<td><input type="button" value="reset plot" onClick="resetPlot(); return false;" /></td>
+		<td><input type="button" value="csv" onClick="csvDownload(); return false;" /></td>
+	</tr>
+</table>
+
 <p />
 <div id="displaychoices">
-Display: 
-<input type="checkbox" name="ER" checked="checked" id="ER" /><label for="ER">ER</label>
-<input type="checkbox" name="NOS" checked="checked" id="NOS" /><label for="NOS">NOS</label>
-<input type="checkbox" name="MDS" checked="checked" id="MDS" /><label for="MDS">MDS</label>
+	Display:
+	<input type="checkbox" name="ER" checked="checked" id="ER" />
+	<label for="ER">ER</label>
+	<input type="checkbox" name="NOS" checked="checked" id="NOS" />
+	<label for="NOS">NOS</label>
+	<input type="checkbox" name="MDS" checked="checked" id="MDS" />
+	<label for="MDS">MDS</label>
 </div>
 <p />
 
@@ -70,9 +79,11 @@ Display:
 	</tr>
 </table>
 
-<!-- jqGrid  -->
-<table id="datagrid"></table>
-<div id="pager"></div>
+<form id="csvdownload" action="get" action=""
+	style="display:none; visibility:hidden">
+	<input id="format" type="hidden" name="format" value="csv" />
+	<input id="samples_dir" type="hidden" name="samples_dir" value="" />
+</form>
 
 
 

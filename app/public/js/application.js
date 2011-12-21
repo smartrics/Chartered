@@ -30,7 +30,7 @@ function refreshSamplesList() {
 	}, function(j) {
 		var options = '';
 		for ( var i = 0; i < j.length; i++) {
-			options += '<option value="' + j[i].file_name + '">' + j[i].file_name + '</option>';
+			options += '<option value="' + j[i].file_name + '">' + j[i].display_string + '</option>';
 		}
 		$("#samples").html(options);
 	});
@@ -587,6 +587,15 @@ function initialize() {
 	refreshSamplesList();
 	initializeDisplaySelections();
 	initializePlot();
+}
+
+function csvDownload() {
+	var sel = $("#samples option:selected").val();
+	var samples_dir = $("#samples_dir").val();
+
+	$("#csvdownload").attr("action", "samples/" + sel);
+	$("#csvdownload").find("#samples_dir").attr("value", samples_dir);
+	$("#csvdownload").submit();
 }
 
 function notify(message)  {
