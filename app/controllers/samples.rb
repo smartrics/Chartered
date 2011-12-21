@@ -35,7 +35,6 @@ get "/samples/:name" do
       attachment "#{File.basename(path, ".json")}.csv"
     end if format == 'csv'
     sample = File.new(path, "r").read
-    puts sample
     last_modified = Date.new
     cache_control = :no_cache
     sample = convert(sample, format)
@@ -63,7 +62,7 @@ end
 def to_csv(sample)
   keys = []
   maps = []
-  rows = sample.strip.split('\n')
+  rows = sample.strip.split("\n")
   rows.each do | r |
    sanitised = json_to_map r
    begin
@@ -72,22 +71,21 @@ def to_csv(sample)
       keys.concat map.keys
       keys.uniq!
     rescue Exception => e
-      puts "ignoring invalid map. [error: #{e.message}, map: #{r}]"
+      puts "ignoring invalid map. [error: #{e.message}\nsanitised:'#{sanitised}'\nmap:'#{r}']"
     end
   end
   head = []
   keys.each do | key |
     head << key
   end
-  
   content = ""
-  content << head.to_csv << "\n"
+  content << head.to_csv 
   maps.each do | map |
     row = []
     keys.each do | key |
-      row << map[key] if map[key].kind_of?(String)
+        row << (map[key].kind_of?(Array) ? 'array' : map[key] )
     end
-    content << row.to_csv << "\n"
+    content << row.to_csv
   end
   content
 end
@@ -126,7 +124,8 @@ end
 
 def json_to_map r
   sanitised = r.strip
-  sanitised = sanitised.chop if sanitised.end_with?(",")
-  sanitised = sanitised.gsub(/"\s*:\s*"/, '"=>"')
+  sanitised.gsub!(/"\s*:\s*"/, '"=>"')
+  sanitised.gsub!(/"\s*:\s*\[/, '"=>[')
+  sanitised.chop! if sanitised.end_with?(",")
   sanitised
 end
