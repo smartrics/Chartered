@@ -48,10 +48,10 @@ Warbler::Config.new do |config|
   # so that they can be packaged in the archive.
   # For Rails applications, the Rails gems are included by default
   # unless the vendor/rails directory is present.
-  config.gems += ["sinatra"]
+  # config.gems += ["sinatra"]
 
   # Uncomment this if you don't want to package rails gem.
-  config.gems -= ["rails"]
+  # config.gems -= ["rails"]
 
   # The most recent versions of gems are used.
   # You can specify versions of gems by using a hash assignment:
