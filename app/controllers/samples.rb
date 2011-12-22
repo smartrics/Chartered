@@ -1,4 +1,5 @@
 require 'cgi'
+require 'json'
 require 'csv'
 
 get "/samples" do
@@ -11,9 +12,7 @@ get "/samples" do
     ret << { "file_name" => File.basename(f), "display_string" => extract_display_string(f) }
   end
   content_type 'application/json', :charset => 'utf-8'
-  my_json = ret.to_s
-  ret = my_json.gsub("=>", ":")
-  ret
+  ret.to_json
 end
 
 get "/samples/:name" do
@@ -44,9 +43,7 @@ get "/samples/:name" do
     #status 404
     content_type 'application/json', :charset => 'utf-8'
     status 200
-    ret = <<EOS
-      {"error" : "File selected doent't exist: #{name}" }
-EOS
+    ret = {"error" => "File selected doent't exist: #{name}" }
   end
 end
 
