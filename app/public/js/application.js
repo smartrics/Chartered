@@ -288,11 +288,12 @@ function collectData(series) {
 	for(t in plotData.smile_mds) {
 		tooltip = "[" + t + "]<br/>";
 		for(v in plotData.smile_mds[t]) {
-			tooltip += "&nbsp;&nbsp;[" + v + "]<br/>";
 			var venues = plotData.smile_mds[t][v].points.venues;
+			var current = "";
 			for(s in venues) {
-				tooltip += "&nbsp;&nbsp;&nbsp;&nbsp;" + venues[s] + "<br/>";
+				current += venues[s] + "<br/>";
 			}
+			tooltip += buildMarketDataTooltip(current);
 		}
 		plotData.mds_p_mds.points.push([t, plotData.references.minPrice]);
 		plotData.mds_p_mds.points.venues.push(tooltip);
@@ -303,11 +304,12 @@ function collectData(series) {
 	for(t in plotData.smile_mde) {
 		tooltip = "*[" + t + "]<br/>";
 		for(v in plotData.smile_mde[t]) {
-			tooltip += "&nbsp;&nbsp;[" + v + "]<br/>";
+			var current = "";
 			var venues = plotData.smile_mde[t][v].points.venues;
 			for(s in venues) {
-				tooltip += "&nbsp;&nbsp;&nbsp;&nbsp;" + venues[s] + "<br/>";
+				current += venues[s] + "<br/>";
 			}
+			tooltip += buildMarketDataTooltip(current);
 		}
 		plotData.mds_p_mde.points.push([t, plotData.references.minPrice]);
 		plotData.mds_p_mde.points.venues.push(tooltip);
@@ -323,17 +325,17 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 		data: plotData.or_flow.points,
 		stack: false,
 		label: plotData.or_flow.label,
-		bars: { show: true, barWidth: 1 }
+		bars: { show: true, barWidth: 2 }
    },{ 
 		data: plotData.nos_flow.points,
 		stack: false,
 		label: plotData.nos_flow.label,
-		bars: { show: true, barWidth: 1 }
+		bars: { show: true, barWidth: 2 }
    },{ 
 		data: plotData.er_flow.points,
 		stack: true,
 		label: plotData.er_flow.label,
-		bars: { show: true, barWidth: 1 }
+		bars: { show: true, barWidth: 2 }
    }];
 	
 	var plot_options_flow = {
@@ -514,6 +516,10 @@ function plotPricesAndQuantity(plotData) {
 			-1, 1);
 }
 
+function buildMarketDataTooltip(content) {
+	return '<div style="position: relative;border-right: 1px solid #000;float: left; padding:5px">' + content + '</div>';
+}
+
 function showTooltip(x, y, contents) {
     $('<div id="tooltip">' + contents + '</div>').css( {
         position: 'absolute',
@@ -542,7 +548,7 @@ function plotHover(event, pos, item) {
     if (item) {
         if (previousPoint != item.dataIndex) {
             previousPoint = item.dataIndex;
-            $("#tooltip").fadeOut(200);
+            $("#tooltip").remove();
             var venue = item.series.data.venues[item.dataIndex];
             var points = item.series.data[item.dataIndex];
             var t = parseInt(points[0]);
