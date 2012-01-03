@@ -25,9 +25,14 @@ function dump(arr,level) {
 }
 
 function refreshSamplesList() {
+	var dir = $("#samples_dir").val();
 	$.getJSON("samples", {
-		samples_dir : $("#samples_dir").val()
+		samples_dir : dir
 	}, function(j) {
+		if(j.length == 0) {
+			notify("No files found in the specified data directory '" + dir + "'");
+			return;
+		}
 		var options = '';
 		for ( var i = 0; i < j.length; i++) {
 			options += '<option value="' + j[i].file_name + '">' + j[i].display_string + '</option>';
@@ -206,7 +211,7 @@ function collectData(series) {
 			plotData.or_v.points.push([0, toMio(s.orderQty)]);
 			plotData.or_v.points.venues.push(tooltip);
 			plotData.or_p.points.push([0, s.price]);
-			plotData.or_p.points.venues.push(s.rule);
+			plotData.or_p.points.venues.push(tooltip);
 			plotData.references.updateMinMaxPrice(s.price);
 			plotData.or_flow.points.push([0, -1]);
 			plotData.or_flow.points.venues.push(tooltip);
@@ -325,16 +330,19 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 		data: plotData.or_flow.points,
 		stack: false,
 		label: plotData.or_flow.label,
+		points: { show: true, lineWidth: 1 },
 		bars: { show: true, barWidth: 2 }
    },{ 
 		data: plotData.nos_flow.points,
 		stack: false,
 		label: plotData.nos_flow.label,
+		points: { show: true, lineWidth: 1 },
 		bars: { show: true, barWidth: 2 }
    },{ 
 		data: plotData.er_flow.points,
 		stack: true,
 		label: plotData.er_flow.label,
+		points: { show: true, lineWidth: 1 },
 		bars: { show: true, barWidth: 2 }
    }];
 	
