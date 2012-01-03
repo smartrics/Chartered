@@ -117,24 +117,6 @@ def extract_display_string f
   res
 end
 
-#def json_string_to_map r
-#  pos = r.index("unknown_message")
-#  unless pos
-#    puts "ignoring unknown line. [pos: #{pos}, line:'#{r}']"
-#    return nil;
-#  end
-#  sanitised = r.strip
-#  sanitised.gsub!(/"\s*:\s*"/, '"=>"')
-#  sanitised.gsub!(/"\s*:\s*\[/, '"=>[')
-#  sanitised.chop! if sanitised.end_with?(",")
-#  begin
-#    eval(sanitised)
-#  rescue Exception => e
-#    puts "ignoring invalid map. [error: #{e.message}\nsanitised:'#{sanitised}'\nmap:'#{r}']"
-#    nil
-#  end
-#end
-
 def parse_json_string_to_map string
   sanitised = string
   begin
