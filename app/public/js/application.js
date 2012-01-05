@@ -73,6 +73,8 @@ function References() {
 
 	this.t1 = 0;
 	
+	this.current_smile_time = 0;
+	
 	this.isFromSor = function(s) {
 		return s.sender == this.sorId;
 	};
@@ -204,7 +206,7 @@ function collectData(series) {
 	for( var i = 0; i<series.length; i++) {
 		var s = series[i];
 		var relativeTime = s.timestamp - plotData.references.t0;
-		var tooltip;
+		var tooltip, tooltip_bid, tooltip_offer;
 		
 		if(s.event == "Order") {
 			tooltip = "[0]" + s.sender + " " + s.side + " " + s.orderQty + " @ " + s.price + " (" + s.rule + ")";
@@ -267,7 +269,11 @@ function collectData(series) {
 				if(plotData.smile_mde[relativeTime][entry.venue] == null) {
 					plotData.smile_mde[relativeTime][entry.venue] = new DataHolder(entry.venue);
 				}
-				tooltip = entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
+				var type = "";
+				if(entry.type != null) {
+					type = entry.type + " : ";
+				}
+				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mde[relativeTime][entry.venue].points.push([entry.quantity, entry.price]);
 				plotData.smile_mde[relativeTime][entry.venue].points.venues.push(tooltip);
 				plotData.references.updateMinMaxQuantity(entry.quantity);
@@ -283,7 +289,11 @@ function collectData(series) {
 					plotData.smile_mds[relativeTime][entry.venue] = new DataHolder(entry.venue);
 				}
 				plotData.smile_mds[relativeTime][entry.venue].points.push([entry.quantity, entry.price]);
-				tooltip = entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
+				var type = "";
+				if(entry.type != null) {
+					type = entry.type + " : ";
+				}
+				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mds[relativeTime][entry.venue].points.venues.push(tooltip);
 				plotData.references.updateMinMaxQuantity(entry.quantity);
 				plotData.references.updateMinMaxPrice(entry.price);
@@ -294,11 +304,16 @@ function collectData(series) {
 		tooltip = "[" + t + "]<br/>";
 		for(v in plotData.smile_mds[t]) {
 			var venues = plotData.smile_mds[t][v].points.venues;
-			var current = "";
+			var current_bid = "";
+			var current_offer = "";
 			for(s in venues) {
-				current += venues[s] + "<br/>";
+				if((""+venues[s]).indexOf("bid :") >= 0) {
+					current_bid += venues[s] + "<br/>";
+				} else {
+					current_offer += venues[s] + "<br/>";
+				}
 			}
-			tooltip += buildMarketDataTooltip(current);
+			tooltip += buildMarketDataTooltip(current_bid + "<br />" + current_offer);
 		}
 		plotData.mds_p_mds.points.push([t, plotData.references.minPrice]);
 		plotData.mds_p_mds.points.venues.push(tooltip);
@@ -309,12 +324,17 @@ function collectData(series) {
 	for(t in plotData.smile_mde) {
 		tooltip = "*[" + t + "]<br/>";
 		for(v in plotData.smile_mde[t]) {
-			var current = "";
 			var venues = plotData.smile_mde[t][v].points.venues;
+			var current_bid = "";
+			var current_offer = "";
 			for(s in venues) {
-				current += venues[s] + "<br/>";
+				if((""+venues[s]).indexOf("bid :") >= 0) {
+					current_bid += venues[s] + "<br/>";
+				} else {
+					current_offer += venues[s] + "<br/>";
+				}
 			}
-			tooltip += buildMarketDataTooltip(current);
+			tooltip += buildMarketDataTooltip(current_bid + "<br />" + current_offer);
 		}
 		plotData.mds_p_mde.points.push([t, plotData.references.minPrice]);
 		plotData.mds_p_mde.points.venues.push(tooltip);
@@ -406,7 +426,7 @@ function plotQuantity(plotData, fromx, tox, fromy, toy) {
 	doPlot("quantity", data_options_quantity, plot_options_quantity);
 }
 
-function plotSmile(time, plotData) {
+function plotSmile(time, plotData, from_x, to_x, from_y, to_y) {
 	var data_options_smile = [];
 	var selected;
 	
@@ -431,20 +451,41 @@ function plotSmile(time, plotData) {
 		return;
 	}
 	var entry = smile_data[selected];
+	var min_px = from_y;
+	var max_px = to_y;
 	for(var v in entry) {
+//		for(var px in entry[v].points) {
+//			var ary = entry[v].points[px];
+//			if(ary != entry[v].points.venues) {
+//				var val = entry[v].points[px][1];
+//				notify("val: " + val);
+//				if(val < min_px) {
+//					min_px = val;
+//				}
+//				if(val > max_px) {
+//					max_px = val;
+//				}
+//			}
+//		}
 		data_options_smile.push({
 			data: entry[v].points,
 			label: v,
 			stack: false,
 			lineWidth: 0,
+			points: { show: true },
 			bars: { show: true }
 		});
 	}
 	var plot_options_smile = {
 			legend: { show: true, container: $("#placeholder_smile_legend"), margin: 1, noColumns: 6 },
 			grid: { hoverable: true, clickable: true },
-		    xaxis: { min: -plotData.references.quantityMinAxis(), max: plotData.references.quantityMaxAxis(), tickFormatter: quantityFormatter },
-		    yaxis: { min: plotData.references.priceMinAxis(), max: plotData.references.priceMaxAxis(), tickFormatter: priceFormatter }
+		    selection: { mode: "xy" },
+//		    xaxis: { tickFormatter: quantityFormatter },
+//		    yaxis: { min: min_px, max: max_px, tickFormatter: priceFormatter }
+		    xaxis: { min: from_x, max: to_x, tickFormatter: quantityFormatter },
+		    yaxis: { min: from_y, max: to_y, tickFormatter: priceFormatter }
+//		    xaxis: { min: -plotData.references.quantityMinAxis(), max: plotData.references.quantityMaxAxis(), tickFormatter: quantityFormatter },
+//		    yaxis: { min: plotData.references.priceMinAxis(), max: plotData.references.priceMaxAxis(), tickFormatter: priceFormatter }
 		};	
 
 	doPlot("smile", data_options_smile, plot_options_smile);
@@ -522,6 +563,10 @@ function plotPricesAndQuantity(plotData) {
 			-(plotData.references.t1-plotData.references.t0) * 0.05, 
 			(plotData.references.t1-plotData.references.t0) * 1.05,
 			-1, 1);
+	plotSmile(plotData.references.current_smile_time, plotData, 
+			-(plotData.references.t1-plotData.references.t0) * 0.05, 
+			(plotData.references.t1-plotData.references.t0) * 1.05,
+			-1, 1);
 }
 
 function buildMarketDataTooltip(content) {
@@ -547,8 +592,13 @@ function plotClick(event, pos, item) {
     if (item) {
         var venue = item.series.data.venues[item.dataIndex];
         var points = item.series.data[item.dataIndex];
-        var t = parseInt(points[0]);
-        plotSmile(t, plotData);
+        plotData.references.current_smile_time = parseInt(points[0]);
+	    var min_x = -plotData.references.quantityMinAxis();
+        var max_x = plotData.references.quantityMaxAxis();
+		var min_y = plotData.references.priceMinAxis();
+		var max_y = plotData.references.priceMaxAxis();
+        
+        plotSmile(plotData.references.current_smile_time, plotData, min_x, max_x, min_y, max_y);
     }
 }
 
@@ -559,10 +609,14 @@ function plotHover(event, pos, item) {
             $("#tooltip").remove();
             var venue = item.series.data.venues[item.dataIndex];
             var points = item.series.data[item.dataIndex];
-            var t = parseInt(points[0]);
+            plotData.references.current_smile_time = parseInt(points[0]);
             showTooltip(item.pageX, item.pageY, venue);
             notify(item.series.label +": time=" + t + ", value=" + points[1] + ", venue=" + venue);
-            plotSmile(t, plotData);
+    	    var min_x = -plotData.references.quantityMinAxis();
+            var max_x = plotData.references.quantityMaxAxis();
+    		var min_y = plotData.references.priceMinAxis();
+    		var max_y = plotData.references.priceMaxAxis();
+            plotSmile(plotData.references.current_smile_time, plotData, min_x, max_x, min_y, max_y);
         }
     }
     else {
@@ -585,6 +639,9 @@ function plotSelected (event, ranges) {
 	}
 	if(event.currentTarget.id.indexOf("flow") >=0) {
 		plotFlow(plotData, from_x, to_x, from_y, to_y);
+	}
+	if(event.currentTarget.id.indexOf("smile") >=0) {
+		plotSmile(plotData.references.current_smile_time, plotData, from_x, to_x, from_y, to_y);
 	}
 }
 
