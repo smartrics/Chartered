@@ -61,6 +61,8 @@ function References() {
 	this.t0 = 0;
 
 	this.sorId="0";
+
+	this.clientId="";
 	
 	this.minPrice = -1;
 	this.maxPrice = -1;
@@ -84,10 +86,14 @@ function References() {
 	};
 	
 	this.sorY = function(s) {
-		if(this.isFromSor(s)) {
+		if(s.sender == this.sorId) {
+			return s.target == this.clientId ? -1 : 1;
+		} 
+		if(s.sender == this.clientId) {
+			return -1;
+		} else {
 			return 1;
-		};
-		return -1;
+		}
 	};
 	
 	this.updateMinMaxQuantity = function(q) {
@@ -120,7 +126,7 @@ function References() {
 		return this.minQuantity; // - this.percent((this.maxQuantity - this.minQuantity), 2);
 	};
 	this.quantityMaxAxis = function() {
-		return this.maxQuantity; // + this.percent((this.maxQuantity - this.minQuantity), 2);
+		return this.maxQuantity * 1.1; // + this.percent((this.maxQuantity - this.minQuantity), 2);
 	};
 	
 	this.percent = function(v, pc) {
@@ -160,6 +166,8 @@ function PlotData() {
 
 	this.or_flow = new DataHolder("ORDER");
 	this.er_flow = new DataHolder("ER");
+	this.er_rej_flow = new DataHolder("ER(Rej)");
+	this.er_canc_flow = new DataHolder("ER(Canc)");
 	this.nos_flow = new DataHolder("NOS");
 	this.ocr_flow = new DataHolder("OCR");
 		
@@ -192,6 +200,9 @@ function quantityFormatter(v, axis) {
 	if(v>999999) {
 		return "" + (v / 1000000) + "M";
 	}
+	if(v>99999) {
+		return "" + (v / 100000) + "T";
+	}
 	if(v>999) {
 		return "" + (v / 1000) + "K";
 	}
@@ -217,8 +228,10 @@ function collectData(series) {
 			plotData.or_p.points.push([0, s.price]);
 			plotData.or_p.points.venues.push(tooltip);
 			plotData.references.updateMinMaxPrice(s.price);
+			plotData.references.clientId = s.sender;
 			plotData.or_flow.points.push([0, -1]);
 			plotData.or_flow.points.venues.push(tooltip);
+			plotData.references.updateMinMaxQuantity(s.orderQty);
 		} else if(s.event == "NewOrderSingle") {
 			tooltip = "[" + relativeTime + "]" + s.sender + "->" + s.execAuthority + " [" + s.orderQty + " @ " + s.price + "]";
 			plotData.nos_v.points.push([relativeTime, toMio(s.orderQty)]);
@@ -228,22 +241,30 @@ function collectData(series) {
 			plotData.references.updateMinMaxPrice(s.price);
 			plotData.nos_flow.points.push([relativeTime, plotData.references.sorY(s)]);
 			plotData.nos_flow.points.venues.push(tooltip);
+			plotData.references.updateMinMaxQuantity(s.orderQty);
 		} else if(s.event == "ExecutionReport") {
-			plotData.er_flow.points.push([relativeTime, plotData.references.sorY(s)]);
 			var source = s.sender == null ? (s.venue == null ? "unknown" : s.venue) : s.sender;
 			var dest = s.target == null ? (s.execAuthority == null ? "unknown" : s.execAuthority) : s.target;
 			var p = s.lastShares == null ? "" : "[" + s.lastShares + " @ " + s.price + "]";
 			tooltip = "[" + relativeTime + "]" + source + "->" + dest + "[" + s.execType + "/" + s.ordStatus + "] " + p;
 			plotData.er_flow.points.venues.push(tooltip);
+			if(s.execType=="REJECTED") {
+				plotData.er_rej_flow.points.push([relativeTime, plotData.references.sorY(s)]);
+			} else if(s.execType=="CANCELED") {
+				plotData.er_canc_flow.points.push([relativeTime, plotData.references.sorY(s)]);
+			} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
+				plotData.er_flow.points.push([relativeTime, plotData.references.sorY(s)]);
+			}
 			if(plotData.references.isForSor(s)) {
-				if(s.execType=="REJECT") {
+				if(s.execType=="REJECTED") {
 					plotData.er_v_rej.points.push([relativeTime, toMio(s.lastShares)]);
 					plotData.er_v_rej.points.venues.push(tooltip);
 					
 					plotData.er_p_rej.points.push([relativeTime, s.price]);
 					plotData.er_p_rej.points.venues.push(tooltip);
 				
-				} else if(s.execType=="CANCEL") {
+				} else if(s.execType=="CANCELED") {
+
 					plotData.er_p_canc.points.push([relativeTime, s.price]);
 					plotData.er_p_canc.points.venues.push(tooltip);
 
@@ -251,6 +272,7 @@ function collectData(series) {
 					plotData.er_v_canc.points.venues.push(tooltip);
 				
 				} else if(s.execType=="FILL" || s.execType=="PARTIAL_FILL") {
+
 					plotData.er_v_ls.points.push([relativeTime, toMio(s.lastShares)]);
 					plotData.er_v_ls.points.venues.push(tooltip);
 	
@@ -260,6 +282,7 @@ function collectData(series) {
 					plotData.er_p.points.push([relativeTime, s.price]);
 					plotData.er_p.points.venues.push(tooltip);
 				} 
+				plotData.references.updateMinMaxQuantity(s.orderQty);
 				plotData.references.updateMinMaxPrice(s.price);
 			}
 		} else if(s.event == "List<MarketDataEntry>") {
@@ -278,8 +301,8 @@ function collectData(series) {
 				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mde[relativeTime][entry.venue].points.push([entry.quantity, entry.price]);
 				plotData.smile_mde[relativeTime][entry.venue].points.venues.push(tooltip);
-				plotData.references.updateMinMaxQuantity(entry.quantity);
-				plotData.references.updateMinMaxPrice(entry.price);
+//				plotData.references.updateMinMaxQuantity(entry.quantity);
+//				plotData.references.updateMinMaxPrice(entry.price);
 				if(plotData.mds_venues.indexOf(entry.venue)<0) {
 					plotData.mds_venues.push(entry.venue);
 				}
@@ -301,8 +324,8 @@ function collectData(series) {
 				}
 				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mds[relativeTime][entry.venue].points.venues.push(tooltip);
-				plotData.references.updateMinMaxQuantity(entry.quantity);
-				plotData.references.updateMinMaxPrice(entry.price);
+//				plotData.references.updateMinMaxQuantity(entry.quantity);
+//				plotData.references.updateMinMaxPrice(entry.price);
 				if(plotData.mds_venues.indexOf(entry.venue)<0) {
 					plotData.mds_venues.push(entry.venue);
 				}
@@ -354,7 +377,7 @@ function collectData(series) {
 	}
 	
 	generateVenuesCheckboxes(plotData.mds_venues);
-	
+
 	return plotData;
 } 
 
@@ -366,15 +389,27 @@ function plotFlow(plotData, fromx, tox, fromy, toy) {
 		points: { show: true, lineWidth: 1 },
 		bars: { show: true, barWidth: 2 }
    },{ 
-		data: plotData.nos_flow.points,
-		stack: false,
-		label: plotData.nos_flow.label,
-		points: { show: true, lineWidth: 1 },
-		bars: { show: true, barWidth: 2 }
-   },{ 
 		data: plotData.er_flow.points,
 		stack: true,
 		label: plotData.er_flow.label,
+		points: { show: true, lineWidth: 1 },
+		bars: { show: true, barWidth: 2 }
+   },{ 
+		data: plotData.er_canc_flow.points,
+		stack: true,
+		label: plotData.er_canc_flow.label,
+		points: { show: true, lineWidth: 1 },
+		bars: { show: true, barWidth: 2 }
+   },{ 
+		data: plotData.er_rej_flow.points,
+		stack: true,
+		label: plotData.er_rej_flow.label,
+		points: { show: true, lineWidth: 1 },
+		bars: { show: true, barWidth: 2 }
+   },{ 
+		data: plotData.nos_flow.points,
+		stack: false,
+		label: plotData.nos_flow.label,
 		points: { show: true, lineWidth: 1 },
 		bars: { show: true, barWidth: 2 }
    }];
@@ -565,10 +600,10 @@ function plotPrices(plotData, fromx, tox, fromy, toy) {
 function parseAndPlot(series) {
 	// todo: remove global plotData
 	plotData = collectData(series);
-	plotPricesAndQuantity(plotData);
+	plotFlowPricesAndQuantity(plotData);
 }
 
-function plotPricesAndQuantity(plotData) {
+function plotFlowPricesAndQuantity(plotData) {
 	updateEnabledPlots(plotData);
 	plotQuantity(plotData, 
 			-(plotData.references.t1-plotData.references.t0) * 0.05, 
@@ -695,7 +730,7 @@ function initializePlot() {
 }
 
 function resetPlot() {
-	plotPricesAndQuantity(plotData);	
+	plotFlowPricesAndQuantity(plotData);	
 }
 
 function updateEnabledPlots(plotData) {
@@ -706,7 +741,7 @@ function updateEnabledPlots(plotData) {
 	choiceContainer.find("input").each(function () {
         var key = $(this).attr("name");
         var checked = $(this).attr("checked");
-        if(key=="ER") {
+        if(key=="ER" || key=="ER{Canc}" || key=="ER(Rej)") {
         	plotData.er_v_ls.enabled = checked;
         	plotData.er_v_oq.enabled = checked;
         	plotData.er_v_canc.enabled = checked;
@@ -715,6 +750,8 @@ function updateEnabledPlots(plotData) {
         	plotData.er_p_canc.enabled = checked;
         	plotData.er_p_rej.enabled = checked;
         	plotData.er_flow.enabled = checked;
+        	plotData.er_rej_flow.enabled = checked;
+        	plotData.er_canc_flow.enabled = checked;
         }
         if(key=="NOS") {
         	plotData.nos_v.enabled = checked;
@@ -736,8 +773,7 @@ function updateEnabledPlots(plotData) {
 function initializeDisplaySelections() {
 	var choiceContainer = $("#displaychoices");
 	choiceContainer.find("input").click(function(){
-		updateEnabledPlots(plotData);
-		plotPricesAndQuantity(plotData);	
+		plotFlowPricesAndQuantity(plotData);	
 		doPlot("smile", [], {});
 	});
 }
