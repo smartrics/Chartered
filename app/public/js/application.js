@@ -52,6 +52,7 @@ function toMio(q) {
 function DataHolder(label) {
 	this.points = [];
 	this.points.venues = [];
+	this.points.series_name = "x";
 	this.enabled = true;
 	this.label = label;
 	return true;
@@ -200,9 +201,6 @@ function quantityFormatter(v, axis) {
 	if(v>999999) {
 		return "" + (v / 1000000) + "M";
 	}
-	if(v>99999) {
-		return "" + (v / 100000) + "T";
-	}
 	if(v>999) {
 		return "" + (v / 1000) + "K";
 	}
@@ -301,6 +299,7 @@ function collectData(series) {
 				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mde[relativeTime][entry.venue].points.push([entry.quantity, entry.price]);
 				plotData.smile_mde[relativeTime][entry.venue].points.venues.push(tooltip);
+				plotData.smile_mde[relativeTime][entry.venue].points.series_name = "smile";
 //				plotData.references.updateMinMaxQuantity(entry.quantity);
 //				plotData.references.updateMinMaxPrice(entry.price);
 				if(plotData.mds_venues.indexOf(entry.venue)<0) {
@@ -324,6 +323,7 @@ function collectData(series) {
 				}
 				tooltip = type + entry.venue + "[" + entry.quantity + "@" + entry.price + "]";
 				plotData.smile_mds[relativeTime][entry.venue].points.venues.push(tooltip);
+				plotData.smile_mds[relativeTime][entry.venue].points.series_name = "smile";
 //				plotData.references.updateMinMaxQuantity(entry.quantity);
 //				plotData.references.updateMinMaxPrice(entry.price);
 				if(plotData.mds_venues.indexOf(entry.venue)<0) {
@@ -665,14 +665,17 @@ function plotHover(event, pos, item) {
             $("#tooltip").remove();
             var venue = item.series.data.venues[item.dataIndex];
             var points = item.series.data[item.dataIndex];
+            var series_name = item.series.data.series_name;
             plotData.references.current_smile_time = parseInt(points[0]);
             showTooltip(item.pageX, item.pageY, venue);
             notify(item.series.label +": time=" + t + ", value=" + points[1] + ", venue=" + venue);
-    	    var min_x = -plotData.references.quantityMinAxis();
+            var min_x = -plotData.references.quantityMinAxis();
             var max_x = plotData.references.quantityMaxAxis();
-    		var min_y = plotData.references.priceMinAxis();
-    		var max_y = plotData.references.priceMaxAxis();
-            plotSmile(plotData.references.current_smile_time, plotData, min_x, max_x, min_y, max_y);
+            var min_y = plotData.references.priceMinAxis();
+            var max_y = plotData.references.priceMaxAxis();
+    		if(series_name != "smile") {
+    			plotSmile(plotData.references.current_smile_time, plotData, min_x, max_x, min_y, max_y);
+    		}
         }
     }
     else {
