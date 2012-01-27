@@ -59,17 +59,24 @@ def to_json(sample)
   ret.to_json
 end
 
-def to_csv(sample)
-  keys = []
+def to_csv(sample) 
   maps = []
+  keys = []
+  head = []
   rows = sample.strip.split("\n")
   rows.each do | r |
     map = parse_json_string_to_map r
-    maps << map
     keys.concat map.keys
     keys.uniq!
+    maps << map
+    if  map.has_key? "entries"
+      map["entries"].each do | m | 
+        keys.concat m.keys
+        keys.uniq!
+        maps << m
+      end
+    end
   end
-  head = []
   keys.each do | key |
     head << key
   end
